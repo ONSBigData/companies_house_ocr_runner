@@ -1,3 +1,9 @@
+.idea/
+
+/.vagrant
+/config/local/*
+/vagrant_config
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -11,8 +17,8 @@ __pycache__/
 build/
 develop-eggs/
 dist/
-downloads/
 eggs/
+downloads/
 .eggs/
 lib/
 lib64/
@@ -35,7 +41,7 @@ MANIFEST
 pip-log.txt
 pip-delete-this-directory.txt
 
-# Unit test / coverage reports
+# Unit tests / coverage reports
 htmlcov/
 .tox/
 .coverage
@@ -102,3 +108,7 @@ venv.bak/
 
 # mypy
 .mypy_cache/
+
+# Keep directories with gitkeep even if they would otherwise be ignored
+!/**/.gitkeep
+
