@@ -1,5 +1,7 @@
 .idea/
 
+notebooks/
+
 /.vagrant
 /config/local/*
 /vagrant_config
