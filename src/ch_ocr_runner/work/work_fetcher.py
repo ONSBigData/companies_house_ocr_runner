@@ -1,28 +1,52 @@
 # -*- coding: utf-8 -*-
-import pandas as pd
 import os
 
-import ch_ocr_runner.configuration as configuration
-from ch_ocr_runner import setup_logging
+import pandas as pd
 
-config = configuration.get_config()
+import ch_ocr_runner as cor
+import ch_ocr_runner.utils.configuration
+import ch_ocr_runner.utils.setup_logging
+
+config = cor.utils.configuration.get_config()
 
 
 class Cols:
     """All column names used in this module"""
 
+    path = "path"
     batch_id = "batch_id"
     machine_allocation = "machine_allocation"
 
 
 class WorkBatch(object):
-
-    def __init__(self, batch_id, data):
+    def __init__(self, batch_id, data=None):
         self.batch_id = batch_id
         self.data = data.copy()
 
+        filepaths = data[Cols.path].values
+        for filepath in filepaths:
+            full_path = os.path.join(config.PDF_DIR, filepath)
+            try:
+                assert os.path.isfile(full_path)
+            except AssertionError:
+                print(full_path)
         # TODO validate that the files in data are there
         # TODO switch to a collection of filename, filepath?
+
+    def filepaths(self):
+        paths = self.data[Cols.path].values
+        for filepath in paths:
+            full_path = os.path.join(config.PDF_DIR, filepath)
+            yield full_path
+
+    def __len__(self):
+        return len(self.data)
+
+    def __repr__(self):
+        return f"WorkBatch(batch_id={self.batch_id})"
+
+    def __str__(self):
+        return self.__repr__()
 
 
 def _allocated_to_this_machine(df):
@@ -56,9 +80,11 @@ if __name__ == "__main__":
 
     filepath = os.path.join(config.DATA_DIR, "pdf_batch_allocation.csv")
 
-    logger = setup_logging.setup_logging()
+    logger = cor.utils.setup_logging.setup_logging()
 
-    logger.info(f"Log out all work for this machine: {os.getenv(config.MACHINE_ENV_VAR)}")
+    logger.info(
+        f"Log out all work for this machine: {os.getenv(config.MACHINE_ENV_VAR)}"
+    )
 
     for work in csv_to_work(filepath):
 

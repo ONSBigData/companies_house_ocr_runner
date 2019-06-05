@@ -1,0 +1,4 @@
+DATA_DIR: /vagrant/tests/resources
+PDF_DIR: /vagrant/tests/resources/pdfs
+WORKING_DIR: /vagrant_data/working
+WORK_BATCH_ALLOCATION_FILEPATH: /vagrant/tests/resources/pdf_batch_allocation_test.csv

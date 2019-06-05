@@ -5,13 +5,13 @@
 # backwards compatibility). Please don't change it unless you know what
 # you're doing.
 Vagrant.configure("2") do |config|
-  config.vm.box = "ubuntu/xenial64"
+  config.vm.box = "ubuntu/bionic64"
   config.vm.provision :shell, path: "deployment/bootstrap.sh"
 
   # Create a forwarded port mapping which allows access to a specific port
   config.vm.network "forwarded_port", guest: 8888, host: 8888
 
-  config.vm.synced_folder "~/data/economic_activity_classification", "/vagrant_data"
+  config.vm.synced_folder "~/data/companies_house", "/vagrant_data"
 
   config.vm.provider "virtualbox" do |vb|
     # Display the VirtualBox GUI when booting the machine

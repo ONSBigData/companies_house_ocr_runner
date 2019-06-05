@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
+import datetime
 import logging
 import logging.handlers
-import datetime
 import os
 
 LOG_DIR = os.path.join(os.path.expanduser("~"), "logs")
@@ -10,7 +10,7 @@ LOG_DIR = os.path.join(os.path.expanduser("~"), "logs")
 def setup_logging():
     log_format = "%(asctime)s - %(levelname)s - %(filename)s:%(lineno)s - %(message)s"
 
-    logger = logging.getLogger("economic_activity")
+    logger = logging.getLogger("ch_ocr_runner")
 
     logger.setLevel(logging.DEBUG)
 

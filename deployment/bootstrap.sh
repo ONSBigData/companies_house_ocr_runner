@@ -20,6 +20,8 @@ apt-get install -y python3-dev build-essential libgmp3-dev
 apt-get install -y libgl1-mesa-glx
 apt-get install -y libsm6 libxext6
 
+apt-get install -y poppler-utils
+
 # Download Miniconda3
 if [[ ! -e ${DOWNLOAD_DIRECTORY}/${MINICONDA_VERSION} ]]; then
     wget --no-verbose --directory-prefix=$DOWNLOAD_DIRECTORY $MINICONDA_URL
@@ -45,9 +47,12 @@ fi
 conda activate
 
 # Install Python dependencies
-conda install pip pandas numpy Pillow --yes
+# TODO review Python env options, don't do this
+conda install pip pandas numpy Pillow pyyaml --yes
+conda install -c conda-forge opencv scikit-image --yes
 
 pip install pyocr
+pip install pdf2image
 
 echo "Installing editable version of ch_ocr_runner"
 pip install -e /vagrant/
@@ -61,3 +66,6 @@ if [[ ! -e extralines_added.lock ]]; then
 else
     echo "Extra lines already added to .bashrc, skipping"
 fi
+
+mkdir /home/vagrant/config
+cp /vagrant/deployment/ch_ocr_runner_config.yml /home/vagrant/config/

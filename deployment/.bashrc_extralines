@@ -1,3 +1,9 @@
 . /home/vagrant/miniconda/etc/profile.d/conda.sh
 
 conda activate
+
+export CH_OCR_MACHINE_ID=TEST-MACHINE-01
+
+# Limit Tesseract to a single thread per invocation
+export OMP_THREAD_LIMIT=1
+export TESSDATA_PREFIX=/usr/share/tesseract-ocr/4.00/tessdata

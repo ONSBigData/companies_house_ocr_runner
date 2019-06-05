@@ -5,7 +5,7 @@ test: lint
 	python setup.py test
 
 package: lint
-	python setup.py sdist bdist_wheel
+	python setup.py test sdist bdist_wheel
 
 install: package
 	pip install --no-deps -e .

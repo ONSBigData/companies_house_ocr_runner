@@ -63,7 +63,7 @@ class YamlConfigProvider(ConfigProvider):
             logger.info(f"Reading config from {self.filepath}")
             print("Reading config from", self.filepath)
             with open(self.filepath, "rb") as f:
-                yaml_conf = yaml.load(f)
+                yaml_conf = yaml.load(f, Loader=yaml.FullLoader)
 
             return yaml_conf.items()
 
@@ -105,13 +105,19 @@ class Config(metaclass=Singleton):
 
     def __init__(self):
 
-        self.DATA_DIR = os.path.join(
-            os.path.expanduser("~"), "data", "companies_house"
+        self.DATA_DIR = os.path.join(os.path.expanduser("~"), "data", "companies_house")
+        self.PDF_DIR = os.path.join(self.DATA_DIR, "pdfs")
+        self.WORKING_DIR = os.path.join(self.DATA_DIR, "working")
+
+        self.WORK_BATCH_ALLOCATION_FILEPATH = os.path.join(
+            self.DATA_DIR, "pdf_batch_allocation.csv"
         )
 
-        self.WORK_BATCH_ALLOCATION_FILEPATH = os.path.join(self.DATA_DIR, "pdf_batch_allocation.csv")
-
         self.MACHINE_ENV_VAR = "CH_OCR_MACHINE_ID"
+
+        self.OCR_DPI = 300
+        self.IMAGE_FORMAT = "tiff"
+        self.IMAGE_SUFFIX = ".tif"
 
         for key, value in Config.config_provider.fetch_config():
 
@@ -123,7 +129,15 @@ class Config(metaclass=Singleton):
 
     def log_config(self):
         logger.info(f"DATA_DIR: {self.DATA_DIR}")
-        logger.info(f"WORK_BATCH_ALLOCATION_FILEPATH: {self.WORK_BATCH_ALLOCATION_FILEPATH}")
+        logger.info(f"PDF_DIR: {self.PDF_DIR}")
+        logger.info(f"WORKING_DIR: {self.WORKING_DIR}")
+        logger.info(
+            f"WORK_BATCH_ALLOCATION_FILEPATH: {self.WORK_BATCH_ALLOCATION_FILEPATH}"
+        )
+        logger.info(f"MACHINE_ENV_VAR: {self.MACHINE_ENV_VAR}")
+        logger.info(f"OCR_DPI: {self.OCR_DPI}")
+        logger.info(f"IMAGE_FORMAT: {self.IMAGE_FORMAT}")
+        logger.info(f"IMAGE_SUFFIX: {self.IMAGE_SUFFIX}")
 
 
 def get_config():
