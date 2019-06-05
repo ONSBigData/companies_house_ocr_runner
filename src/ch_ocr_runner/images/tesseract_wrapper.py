@@ -39,7 +39,7 @@ def run_ocr(image_dir, output_dir):
 
     image_files = glob.glob(f"{image_dir}/*{config.IMAGE_SUFFIX}")
 
-    logger.debug(f"{len(image_files)} to process")
+    logger.info(f"{len(image_files)} to process")
 
     split_files = np.array_split(sorted(image_files), NUM_PROCESSES)
 
@@ -48,7 +48,7 @@ def run_ocr(image_dir, output_dir):
     env = os.environ.copy()
     processes = []
 
-    logger.debug("Starting Tesseract processes")
+    logger.info("Starting Tesseract processes")
 
     for i, chunk_path in enumerate(chunks_filepaths):
 
@@ -65,7 +65,7 @@ def run_ocr(image_dir, output_dir):
         processes.append(proc)
 
     for i, proc in enumerate(processes):
-        logger.debug(
+        logger.info(
             f"Waiting for tesseract process {i+1} of {NUM_PROCESSES} to finish"
         )
         data, err = proc.communicate()

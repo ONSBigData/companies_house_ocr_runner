@@ -14,8 +14,8 @@ import ch_ocr_runner.utils.decorators
 import ch_ocr_runner.utils.setup_logging
 import ch_ocr_runner.work.work_fetcher
 
-logger = cor.utils.setup_logging.setup_logging()
 config = cor.utils.configuration.get_config()
+logger = cor.utils.setup_logging.setup_logging()
 
 
 class WorkingDir(object):
@@ -111,7 +111,11 @@ def preprocess_images(pdf_images):
 
 def save_processed_images(pdf_images, image_processed_dir):
 
-    for pdf, images in pdf_images:
+    for pdf_idx, (pdf, images) in enumerate(pdf_images):
+
+        if pdf_idx % config.PREPROCESS_REPORT_FREQUENCY == 0:
+                logger.info(f"Preprocessed {pdf_idx} PDFs")
+
         for i, image in enumerate(images):
 
             filename = f"{pdf}_{i}{config.IMAGE_SUFFIX}"

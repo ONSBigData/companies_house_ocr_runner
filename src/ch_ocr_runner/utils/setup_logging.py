@@ -4,6 +4,11 @@ import logging
 import logging.handlers
 import os
 
+import ch_ocr_runner as cor
+import ch_ocr_runner.utils.configuration
+
+config = cor.utils.configuration.get_config()
+
 LOG_DIR = os.path.join(os.path.expanduser("~"), "logs")
 
 
@@ -12,7 +17,7 @@ def setup_logging():
 
     logger = logging.getLogger("ch_ocr_runner")
 
-    logger.setLevel(logging.DEBUG)
+    logger.setLevel(config.LOG_LEVEL)
 
     if not os.path.exists(LOG_DIR):
         os.mkdir(LOG_DIR)

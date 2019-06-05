@@ -88,4 +88,4 @@ if __name__ == "__main__":
 
     for work in csv_to_work(filepath):
 
-        logger.debug(f"Batch ID: {work.batch_id} -- {len(work.data):,} pdfs")
+        logger.info(f"Batch ID: {work.batch_id} -- {len(work.data):,} pdfs")

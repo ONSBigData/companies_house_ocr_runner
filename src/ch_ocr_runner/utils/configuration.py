@@ -105,6 +105,8 @@ class Config(metaclass=Singleton):
 
     def __init__(self):
 
+        self.LOG_LEVEL = logging.DEBUG
+
         self.DATA_DIR = os.path.join(os.path.expanduser("~"), "data", "companies_house")
         self.PDF_DIR = os.path.join(self.DATA_DIR, "pdfs")
         self.WORKING_DIR = os.path.join(self.DATA_DIR, "working")
@@ -119,6 +121,8 @@ class Config(metaclass=Singleton):
         self.IMAGE_FORMAT = "tiff"
         self.IMAGE_SUFFIX = ".tif"
 
+        self.PREPROCESS_REPORT_FREQUENCY = 50
+
         for key, value in Config.config_provider.fetch_config():
 
             if key in self.__dict__ and not _is_under(key):
@@ -128,6 +132,7 @@ class Config(metaclass=Singleton):
                 self.__dict__[key] = value
 
     def log_config(self):
+        logger.info(f"LOG_LEVEL: {self.LOG_LEVEL}")
         logger.info(f"DATA_DIR: {self.DATA_DIR}")
         logger.info(f"PDF_DIR: {self.PDF_DIR}")
         logger.info(f"WORKING_DIR: {self.WORKING_DIR}")
@@ -138,6 +143,7 @@ class Config(metaclass=Singleton):
         logger.info(f"OCR_DPI: {self.OCR_DPI}")
         logger.info(f"IMAGE_FORMAT: {self.IMAGE_FORMAT}")
         logger.info(f"IMAGE_SUFFIX: {self.IMAGE_SUFFIX}")
+        logger.info(f"PREPROCESS_REPORT_FREQUENCY: {self.PREPROCESS_REPORT_FREQUENCY}")
 
 
 def get_config():
