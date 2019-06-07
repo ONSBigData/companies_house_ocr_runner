@@ -1,71 +1,132 @@
 #!/usr/bin/env bash
+#
+# Used (by vagrant) to provision a server for OCR.
+#
+# NOTE: OCR won't start automatically, the ch_ocr_runner process must be started separately to this
+SCRIPT_NAME=ch_ocr_server_setup
 
-DOWNLOAD_DIRECTORY=/vagrant/deployment/downloads
-CHECKSUM_DIR=/vagrant/deployment/checksums
+function log {
+    timestamp=`date "+%Y-%m-%d %H:%M:%S"`
+    echo "[$SCRIPT_NAME] ${timestamp}: $1"
+}
+
+function apt_install {
+    sudo apt-get -y install $@
+    if [ $? -ne 0 ]; then
+        log "apt_install of $@ failed."
+        exit 1
+    fi
+}
+
+function pip_install {
+    for p in $@; do
+        pip install $p
+        if [ $? -ne 0 ]; then
+            log "pip install of $p failed."
+            exit 1
+        fi
+    done
+}
+
+function miniconda_setup {
+    # Download Miniconda3
+    if [[ ! -e ${DOWNLOAD_DIRECTORY}/${MINICONDA_VERSION} ]]; then
+        wget --no-verbose --directory-prefix=$DOWNLOAD_DIRECTORY $MINICONDA_URL
+    fi
+
+    # Verify the download
+    if md5sum --check $MINICONDA_CHECKSUM; then
+        log "checked md5sum for miniconda"
+    else
+        log "bad md5sum for miniconda, exiting script"
+        exit 1
+    fi
+
+    # Install Miniconda
+    if [[ ! -e ${USER_HOME}/miniconda ]]; then
+        log "Installing miniconda"
+        bash ${DOWNLOAD_DIRECTORY}/${MINICONDA_VERSION} -b -p ${USER_HOME}/miniconda
+    fi
+}
+
+log "Setting up machine for Companies House OCR Runner"
+
+log "Setting environment dependent arguments"
+if [ ${USER} == "vagrant" ] || [ ${SUDO_USER} == "vagrant" ]; then
+    log "Running script in VM setup by Vagrant"
+    PROJECT_HOME=/vagrant
+    USER_HOME=/home/vagrant
+else
+    log "Running non-vagrant setup"
+    PROJECT_HOME=$HOME/companies_house_ocr_runner
+    USER_HOME=$HOME
+fi
+
+log "Setting common arguments"
+DOWNLOAD_DIRECTORY=${PROJECT_HOME}/deployment/downloads
+CHECKSUM_DIR=${PROJECT_HOME}/deployment/checksums
 
 MINICONDA_VERSION=Miniconda3-4.6.14-Linux-x86_64.sh
-
 MINICONDA_URL=https://repo.continuum.io/miniconda/${MINICONDA_VERSION}
 MINICONDA_CHECKSUM=${CHECKSUM_DIR}/miniconda.md5sum.txt
 
-apt-get -y update
-apt-get -y upgrade
+log "PROJECT_HOME=$PROJECT_HOME"
+log "DOWNLOAD_DIRECTORY=$DOWNLOAD_DIRECTORY"
+log "CHECKSUM_DIR=$CHECKSUM_DIR"
 
-echo "Install Tesseract"
-apt-get install -y tesseract-ocr
-apt-get install -y libtesseract-dev
+sudo apt-get -y update
+sudo apt-get -y upgrade
+sudo pip install --upgrade pip
 
-apt-get install -y python3-dev build-essential libgmp3-dev
+log "Install Tesseract"
+apt_install tesseract-ocr libtesseract-dev
 
-apt-get install -y libgl1-mesa-glx
-apt-get install -y libsm6 libxext6
+log "Install Python"
+echo apt_install python3-dev build-essential libgmp3-dev
 
-apt-get install -y poppler-utils
+apt_install libgl1-mesa-glx
+apt_install libsm6 libxext6
 
-# Download Miniconda3
-if [[ ! -e ${DOWNLOAD_DIRECTORY}/${MINICONDA_VERSION} ]]; then
-    wget --no-verbose --directory-prefix=$DOWNLOAD_DIRECTORY $MINICONDA_URL
-fi
+log "Install poppler"
+apt_install poppler-utils
 
-# Verify the download
-if md5sum --check $MINICONDA_CHECKSUM; then
-    echo "checked md5sum for miniconda"
-else
-    echo "bad md5sum for miniconda, exiting script"
-    exit 1
-fi
+log "Setup Miniconda"
+miniconda_setup
 
-# Install Miniconda
-if [[ ! -e /home/vagrant/resources/checksums/miniconda ]]; then
-    bash ${DOWNLOAD_DIRECTORY}/${MINICONDA_VERSION} -b -p /home/vagrant/miniconda
-fi
-
+bash ${DOWNLOAD_DIRECTORY}/${MINICONDA_VERSION} -b -p ${USER_HOME}/miniconda
 
 # Set up miniconda to run here
-. /home/vagrant/miniconda/etc/profile.d/conda.sh
+log "Activating conda env"
+. ${USER_HOME}/miniconda/etc/profile.d/conda.sh
 
 conda activate
 
-# Install Python dependencies
-# TODO review Python env options, don't do this
 conda install pip pandas numpy Pillow pyyaml --yes
 conda install -c conda-forge opencv scikit-image --yes
 
-pip install pyocr
-pip install pdf2image
+conda env list
 
-echo "Installing editable version of ch_ocr_runner"
-pip install -e /vagrant/
+pip_install pyocr
+pip_install pdf2image
 
-echo "Set up .bashrc"
-# Add some arguments to .bashrc
-#TODO make this idempotent
-if [[ ! -e extralines_added.lock ]]; then
-    echo 'source /vagrant/deployment/.bashrc_extralines' >> /home/vagrant/.bashrc
-    touch extralines_added.lock
+if [ $USER == "vagrant" ] || [ $SUDO_USER == "vagrant" ]; then
+    log "Installing editable version of ch_ocr_runner"
+    pip install -e $PROJECT_HOME
+        
+        
+    log "Set up .bashrc"
+    # Add some arguments to .bashrc
+    #TODO make this idempotent
+    if [[ ! -e extralines_added.lock ]]; then
+        echo 'source /vagrant/deployment/.bashrc_extralines' >> /home/vagrant/.bashrc
+        touch extralines_added.lock
+    else
+        echo "Extra lines already added to .bashrc, skipping"
+    fi
+
+    mkdir /home/vagrant/config
+    cp /vagrant/deployment/ch_ocr_runner_config.yml /home/vagrant/config/
 else
-    echo "Extra lines already added to .bashrc, skipping"
+    log "Installing ch_ocr_runner"
+    pip install ${PROJECT_HOME}
 fi
-
-mkdir /home/vagrant/config
-cp /vagrant/deployment/ch_ocr_runner_config.yml /home/vagrant/config/
