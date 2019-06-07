@@ -20,6 +20,7 @@ NUM_PROCESSES = multiprocessing.cpu_count()
 logger = logging.getLogger(__name__)
 config = cor.utils.configuration.get_config()
 
+TESSERACT_COMMAND_TEMPLATE = "tesseract {chunk_path} {tsv_path} -l eng tsv pdf"
 
 @cor.utils.decorators.log()
 def run_ocr(image_dir, output_dir):
@@ -54,7 +55,7 @@ def run_ocr(image_dir, output_dir):
 
         tsv_path = os.path.join(output_dir, f"{CHUNK_PREFIX}{i}")
 
-        cmd = f"tesseract {chunk_path} {tsv_path} -l eng tsv"
+        cmd = TESSERACT_COMMAND_TEMPLATE.format(chunk_path=chunk_path, tsv_path=tsv_path)
 
         print(cmd)
 
