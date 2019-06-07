@@ -62,10 +62,9 @@ def _allocated_to_this_machine(df):
 
 def fetch(df: pd.DataFrame):
     """Work generator"""
-
     filtered_df = _allocated_to_this_machine(df)
 
-    groups = filtered_df.groupby(Cols.batch_id)
+    groups = filtered_df.groupby(Cols.batch_id, sort=True)
 
     for batch_id, data in groups:
         yield WorkBatch(batch_id, data)
