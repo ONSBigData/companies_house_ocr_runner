@@ -54,7 +54,7 @@ def main(_):
     work = cor.work.work_fetcher.csv_to_work(config.WORK_BATCH_ALLOCATION_FILEPATH)
 
     for i, batch in enumerate(work):
-        logger.info(f"Starting batch number {i+1} of this run")
+        logger.info(f"Processed {i} batches this run")
         process(batch)
 
 
