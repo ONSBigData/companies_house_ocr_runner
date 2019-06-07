@@ -117,6 +117,10 @@ def process(batch: ch_ocr_runner.work.WorkBatch):
         image_dir=working_dir.image_processed_dir, output_dir=working_dir.tsv_dir
     )
 
+    cor.images.tesseract_wrapper.single_output_file_per_pdf(
+        tsv_dir=working_dir.tsv_dir, pdf_tsvs=working_dir.pdf_tsvs
+    )
+
     create_lockfile(batch)
 
 

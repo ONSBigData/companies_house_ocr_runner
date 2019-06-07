@@ -12,7 +12,9 @@ import pandas as pd
 
 import ch_ocr_runner as cor
 import ch_ocr_runner.utils.configuration
-import ch_ocr_runner.utils.decorators
+from ch_ocr_runner.utils.decorators import log
+
+TESSERACT_COMMAND_TEMPLATE = "tesseract {chunk_path} {tsv_path} -l eng tsv pdf"
 
 CHUNK_PREFIX = "tesseract_chunk-"
 NUM_PROCESSES = multiprocessing.cpu_count()
@@ -20,21 +22,17 @@ NUM_PROCESSES = multiprocessing.cpu_count()
 logger = logging.getLogger(__name__)
 config = cor.utils.configuration.get_config()
 
-TESSERACT_COMMAND_TEMPLATE = "tesseract {chunk_path} {tsv_path} -l eng tsv pdf"
 
-@cor.utils.decorators.log()
+@log()
 def run_ocr(image_dir, output_dir):
     """
-    Starts Tesseract subprocesses to OCR all :IMAGE_SUFFIX: images in a directory.
+    Starts multiple Tesseract subprocesses to run OCR over all images of a specific type in a directory.
 
-    Note: this doesn't use libtesseract or a standard Python wrapper for tesseract.
+    Note: this directly calls Tesseract from the commandline.
 
-    :param image_dir:
-        Directory with images to run OCR over
-    :param output_dir:
-        Directory to save the output to
-    :return:
-        None
+    Args:
+        image_dir: Directory with images to run OCR over
+        output_dir: Directory to save the output to
     """
     _omp_check()
 
@@ -82,14 +80,15 @@ def run_ocr(image_dir, output_dir):
 
 def _create_chunk_files(output_dir, image_files, num_chunks=NUM_PROCESSES):
     """
-    Splits a list of files into :num_chunks: and saves each list to a numbered text file.
+    Splits a list of files into `num_chunks` and saves each list to a numbered text file.
 
     Tesseract can take a txt file with a list of images to process.
     This is more efficient than starting a new Tesseract process for each image.
 
-    :param output_dir:
-    :param image_files:
-    :return:
+    Args:
+        output_dir:
+        image_files:
+        num_chunks:
     """
     split_files = np.array_split(sorted(image_files), num_chunks)
 
@@ -128,19 +127,35 @@ def link_tsv_to_filename(files, tsv_dir, filename):
 
 def single_output_file_per_pdf(tsv_dir, pdf_tsvs):
 
+    # TODO reduce the number of columns stored
+    # TODO remove the other files?
+    def extract_original_file_names(df):
+        """Removes suffix from image file names to recover the original PDF name"""
+        basefiles = (
+            df.filename
+                .str.split(os.sep)  # Split by separator
+                .str[-1]  # Take last
+                .str.replace(f"_[0-9]+{config.IMAGE_SUFFIX}", "")  # Remove image suffix
+        )
+        return basefiles
+
+    def extract_page_numbers(df):
+        """Extracts the page number from the image file suffix"""
+        page_nums = (
+            df.filename.str.split("/")
+                .str[-1]
+                .str.replace(config.IMAGE_SUFFIX, "")
+                .str.split("_")
+                .str[-1]
+        )
+        return page_nums
+
     csv_files = glob.glob(f"{tsv_dir}/*.csv")
 
     df = pd.concat(map(pd.read_csv, csv_files))
 
-    # TODO refactor
-    df["basefile"] = df.filename.str.split("/").str[-1].str.replace(r"_[0-9]+.tif", "")
-    df["page_num"] = (
-        df.filename.str.split("/")
-        .str[-1]
-        .str.replace(r".tif", "")
-        .str.split("_")
-        .str[-1]
-    )
+    df["basefile"] = extract_original_file_names(df)
+    df["page_num"] = extract_page_numbers(df)
 
     for key, group_df in df.groupby("basefile"):
 
@@ -149,7 +164,13 @@ def single_output_file_per_pdf(tsv_dir, pdf_tsvs):
 
 
 def _omp_check():
+    """
+    Checks the `OMP_THREAD_LIMIT` environment variable value.
 
+    To maximise throughput each Tesseract process should be limited to a single thread.
+
+    Logs a warning if the setting isn't as expected.
+    """
     omp_thread_limit = os.environ.get("OMP_THREAD_LIMIT")
     if omp_thread_limit != "1":
         logger.warning(
