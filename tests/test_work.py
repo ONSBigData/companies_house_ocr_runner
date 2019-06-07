@@ -6,7 +6,7 @@ import os
 
 import pytest
 
-import ch_ocr_runner.work.work_fetcher as work_fetcher
+import ch_ocr_runner.work as work_fetcher
 import ch_ocr_runner.utils.configuration
 
 config = ch_ocr_runner.utils.configuration.get_config()
