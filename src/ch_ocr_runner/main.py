@@ -78,8 +78,9 @@ class WorkingDir(object):
         self.image_dir = WorkingDir.__create(self.batch_dir, "images")
         self.image_raw_dir = WorkingDir.__create(self.image_dir, "raw")
         self.image_processed_dir = WorkingDir.__create(self.image_dir, "processed")
+        self.chunk_dir = WorkingDir.__create(self.batch_dir, "chunks")
         self.tsv_dir = WorkingDir.__create(self.batch_dir, "tsv")
-        self.pdf_tsvs = WorkingDir.__create(self.batch_dir, "pdf_tsv")
+        self.output_dir = WorkingDir.__create(self.batch_dir, "output")
 
 
 @log()
@@ -114,11 +115,10 @@ def process(batch: ch_ocr_runner.work.WorkBatch):
     preprocess(pdf_to_image_generator, working_dir)
 
     cor.images.tesseract_wrapper.run_ocr(
-        image_dir=working_dir.image_processed_dir, output_dir=working_dir.tsv_dir
-    )
-
-    cor.images.tesseract_wrapper.single_output_file_per_pdf(
-        tsv_dir=working_dir.tsv_dir, pdf_tsvs=working_dir.pdf_tsvs
+        image_dir=working_dir.image_processed_dir,
+        chunk_dir=working_dir.chunk_dir,
+        tsv_dir=working_dir.tsv_dir,
+        output_dir=working_dir.output_dir
     )
 
     create_lockfile(batch)

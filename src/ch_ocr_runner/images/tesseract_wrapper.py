@@ -14,71 +14,91 @@ import ch_ocr_runner as cor
 import ch_ocr_runner.utils.configuration
 from ch_ocr_runner.utils.decorators import log
 
-TESSERACT_COMMAND_TEMPLATE = "tesseract {chunk_path} {tsv_path} -l eng tsv pdf"
+TESSERACT_COMMAND_TEMPLATE = "tesseract {chunk_path} {tsv_path} -l eng tsv"
 
-CHUNK_PREFIX = "tesseract_chunk-"
 NUM_PROCESSES = multiprocessing.cpu_count()
 
 logger = logging.getLogger(__name__)
 config = cor.utils.configuration.get_config()
 
 
+class Chunk(object):
+    """Chunk of work to pass to a single Tesseract process"""
+    CHUNK_PREFIX = "tesseract_chunk-"
+    CHUNK_SUFFIX = ".txt"
+
+    def __init__(self, filepaths, chunk_id, chunk_dir):
+        self.filepaths = tuple(sorted(filepaths))
+        self.chunk_id = chunk_id
+        self.path = os.path.join(chunk_dir, f"{Chunk.CHUNK_PREFIX}{self.chunk_id}{Chunk.CHUNK_SUFFIX}")
+        self.__save()
+        self.tsv_filename_no_suffix = f"{Chunk.CHUNK_PREFIX}{self.chunk_id}"
+
+    def __save(self):
+
+        with open(self.path, "w") as f:
+            for filepath in self.filepaths:
+                f.write(f"{filepath}\n")
+
+    def __hash__(self):
+        return hash((self.chunk_id, self.filepaths))
+
+    def __eq__(self, other):
+        return self.chunk_id == other.chunk_id and self.filepaths == other.filepaths
+
+    def __ne__(self, other):
+        return not (self == other)
+
+    def __repr__(self):
+        return f"Chunk(chunk_id={self.chunk_id})"
+
+    def __str__(self):
+        return self.__repr__()
+
+
 @log()
-def run_ocr(image_dir, output_dir):
+def run_ocr(image_dir, chunk_dir, tsv_dir, output_dir):
     """
     Starts multiple Tesseract subprocesses to run OCR over all images of a specific type in a directory.
 
-    Note: this directly calls Tesseract from the commandline.
+    Image type to target is set in configuration: `config.IMAGE_SUFFIX`.
 
     Args:
         image_dir: Directory with images to run OCR over
-        output_dir: Directory to save the output to
+        chunk_dir: Stores the input files to Tesseract (txt file lists of paths to images)
+        tsv_dir: Tesseract will save tsv files here
+        output_dir: Directory to save the final output to
     """
     _omp_check()
 
     image_files = glob.glob(f"{image_dir}/*{config.IMAGE_SUFFIX}")
-
     logger.info(f"{len(image_files)} to process")
 
-    split_files = np.array_split(sorted(image_files), NUM_PROCESSES)
+    chunks = _create_chunks(image_files, chunk_dir=chunk_dir)
 
-    chunks_filepaths = _create_chunk_files(output_dir, image_files)
+    chunk_processes = _tesseract_processes(chunks, tsv_dir=tsv_dir)
 
-    env = os.environ.copy()
-    processes = []
+    _wait_for_completion(chunk_processes)
 
-    logger.info("Starting Tesseract processes")
+    _create_final_output(chunks, tsv_dir=tsv_dir, output_dir=output_dir)
 
-    for i, chunk_path in enumerate(chunks_filepaths):
 
-        tsv_path = os.path.join(output_dir, f"{CHUNK_PREFIX}{i}")
+def _omp_check():
+    """
+    Checks the `OMP_THREAD_LIMIT` environment variable value.
 
-        cmd = TESSERACT_COMMAND_TEMPLATE.format(chunk_path=chunk_path, tsv_path=tsv_path)
+    To maximise throughput each Tesseract process should be limited to a single thread.
 
-        print(cmd)
-
-        proc = subprocess.Popen(
-            shlex.split(cmd), env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+    Logs a warning if the setting isn't as expected.
+    """
+    omp_thread_limit = os.environ.get("OMP_THREAD_LIMIT")
+    if omp_thread_limit != "1":
+        logger.warning(
+            f"OMP_THREAD_LIMIT = {omp_thread_limit} (should be 1 for efficient multi-core batch processing)"
         )
 
-        processes.append(proc)
 
-    for i, proc in enumerate(processes):
-        logger.info(
-            f"Waiting for tesseract process {i+1} of {NUM_PROCESSES} to finish"
-        )
-        data, err = proc.communicate()
-        logger.debug(err.decode("utf-8"))
-
-        filename_df = link_tsv_to_filename(
-            split_files[i], output_dir, f"{CHUNK_PREFIX}{i}.tsv"
-        )
-
-        outfile_path = os.path.join(output_dir, f"{CHUNK_PREFIX}{i}.csv")
-        filename_df.to_csv(outfile_path, index=False)
-
-
-def _create_chunk_files(output_dir, image_files, num_chunks=NUM_PROCESSES):
+def _create_chunks(image_files, chunk_dir):
     """
     Splits a list of files into `num_chunks` and saves each list to a numbered text file.
 
@@ -90,45 +110,55 @@ def _create_chunk_files(output_dir, image_files, num_chunks=NUM_PROCESSES):
         image_files:
         num_chunks:
     """
-    split_files = np.array_split(sorted(image_files), num_chunks)
+    split_files = np.array_split(sorted(image_files), NUM_PROCESSES)
 
-    chunks = []
-    for i, chunk in enumerate(split_files):
+    chunks = [
+        Chunk(filepaths=chunk_files.tolist(), chunk_id=chunk_id, chunk_dir=chunk_dir)
+        for chunk_id, chunk_files in enumerate(split_files)
+    ]
 
-        chunk_path = os.path.join(output_dir, f"{CHUNK_PREFIX}{i}.txt")
-
-        chunks.append(chunk_path)
-
-        with open(chunk_path, "w") as f:
-            for line in chunk.tolist():
-                f.write(f"{line}\n")
     return chunks
 
 
-def link_tsv_to_filename(files, tsv_dir, filename):
+def _tesseract_processes(chunks, tsv_dir):
+    """Maps each chunk of work to a tesseract process"""
+    def start_process(chunk: Chunk, env):
+        """Starts a tesseract process for a chunk of image files"""
+        tsv_path = os.path.join(tsv_dir, chunk.tsv_filename_no_suffix)
 
-    tesseract_df = pd.read_csv(
-        os.path.join(tsv_dir, filename),
-        sep="\t",
-        engine="python",
-        quotechar=None,
-        quoting=csv.QUOTE_NONE,
-        encoding="utf-8",
-    )
+        cmd = TESSERACT_COMMAND_TEMPLATE.format(chunk_path=chunk.path, tsv_path=tsv_path)
 
-    filename_df = pd.DataFrame(
-        {"filename": files, "page_num": range(1, len(files) + 1)}
-    )
+        print(cmd)
 
-    merged_df = pd.merge(filename_df, tesseract_df, on="page_num")
+        process = subprocess.Popen(
+            shlex.split(cmd), env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
 
-    return merged_df
+        return process
+
+    logger.info("Starting Tesseract processes")
+
+    env = os.environ.copy()
+    tesseract_process_dict = {chunk: start_process(chunk, env) for chunk in chunks}
+
+    return tesseract_process_dict
 
 
-def single_output_file_per_pdf(tsv_dir, pdf_tsvs):
+def _wait_for_completion(chunk_processes):
 
-    # TODO reduce the number of columns stored
-    # TODO remove the other files?
+    for chunk, process in chunk_processes.items():
+        logger.info(f"Waiting for Tesseract to process {chunk}")
+
+        # Communicate will wait for the process to finish
+        stdout, stderr = process.communicate()
+
+        logger.debug(stdout.decode("utf-8"))
+        logger.debug(stderr.decode("utf-8"))
+
+
+def _create_final_output(chunks, tsv_dir, output_dir):
+    """Link tsv output to original filenames and write out to a CSV per input PDF"""
+    
     def extract_original_file_names(df):
         """Removes suffix from image file names to recover the original PDF name"""
         basefiles = (
@@ -150,29 +180,36 @@ def single_output_file_per_pdf(tsv_dir, pdf_tsvs):
         )
         return page_nums
 
-    csv_files = glob.glob(f"{tsv_dir}/*.csv")
+    filenamed_tsv_dfs = [_link_tsv_to_filename(chunk, tsv_dir=tsv_dir) for chunk in chunks]
 
-    df = pd.concat(map(pd.read_csv, csv_files))
+    all_tsv_df = pd.concat(filenamed_tsv_dfs)
 
-    df["basefile"] = extract_original_file_names(df)
-    df["page_num"] = extract_page_numbers(df)
+    all_tsv_df["basefile"] = extract_original_file_names(all_tsv_df)
+    all_tsv_df["page_num"] = extract_page_numbers(all_tsv_df)
 
-    for key, group_df in df.groupby("basefile"):
+    for key, group_df in all_tsv_df.groupby("basefile"):
 
-        outfilepath = os.path.join(pdf_tsvs, f"{key}_output.csv")
-        group_df.sort_values("page_num").to_csv(outfilepath, index=False)
+        outfilepath = os.path.join(output_dir, f"{key}_output.csv")
+        output_df = group_df.sort_values("page_num").drop(columns=["filename", "basefile"])
+
+        output_df.to_csv(outfilepath, index=False)
 
 
-def _omp_check():
-    """
-    Checks the `OMP_THREAD_LIMIT` environment variable value.
+def _link_tsv_to_filename(chunk: Chunk, tsv_dir):
 
-    To maximise throughput each Tesseract process should be limited to a single thread.
+    tesseract_df = pd.read_csv(
+        os.path.join(tsv_dir, f"{chunk.tsv_filename_no_suffix}.tsv"),
+        sep="\t",
+        engine="python",
+        quotechar=None,
+        quoting=csv.QUOTE_NONE,
+        encoding="utf-8",
+    )
 
-    Logs a warning if the setting isn't as expected.
-    """
-    omp_thread_limit = os.environ.get("OMP_THREAD_LIMIT")
-    if omp_thread_limit != "1":
-        logger.warning(
-            f"OMP_THREAD_LIMIT = {omp_thread_limit} (should be 1 for efficient multi-core batch processing)"
-        )
+    filename_df = pd.DataFrame(
+        {"filename": chunk.filepaths, "page_num": range(1, len(chunk.filepaths) + 1)}
+    )
+
+    merged_df = pd.merge(filename_df, tesseract_df, on="page_num")
+
+    return merged_df

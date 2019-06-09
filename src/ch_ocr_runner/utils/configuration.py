@@ -105,7 +105,7 @@ class Config(metaclass=Singleton):
 
     def __init__(self):
 
-        self.LOG_LEVEL = logging.DEBUG
+        self.LOG_LEVEL = "DEBUG"
 
         self.DATA_DIR = os.path.join(os.path.expanduser("~"), "data", "companies_house")
         self.PDF_DIR = os.path.join(self.DATA_DIR, "pdfs")
