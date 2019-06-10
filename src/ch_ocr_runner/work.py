@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 
 class Cols(object):
     """All relevant columns from the batch allocation csv file"""
+
     path = "path"
     batch_id = "batch_id"
     machine_allocation = "machine_allocation"
@@ -33,6 +34,7 @@ class WorkBatch(object):
 
     Files to process are held in `self.data`.
     """
+
     def __init__(self, batch_id, data=None):
         self.batch_id = batch_id
         self.data = data.copy()
@@ -102,11 +104,13 @@ def _allocated_to_this_machine(df: pd.DataFrame):
 
     filtered_df = df[allocation_mask].reset_index(drop=True).copy()
 
-    logger.info(f"{len(filtered_df):,} of {len(df):,} total pdfs allocated to {machine_id}")
+    logger.info(
+        f"{len(filtered_df):,} of {len(df):,} total pdfs allocated to {machine_id}"
+    )
     return filtered_df
 
 
-def _fetch(allocated_df: pd.DataFrame)-> Generator[WorkBatch, None, None]:
+def _fetch(allocated_df: pd.DataFrame) -> Generator[WorkBatch, None, None]:
     """Turns a filtered allocation DataFrame into batches work."""
 
     groups = allocated_df.groupby(Cols.batch_id, sort=True)

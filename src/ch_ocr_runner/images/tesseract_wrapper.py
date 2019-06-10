@@ -24,13 +24,16 @@ config = cor.utils.configuration.get_config()
 
 class Chunk(object):
     """Chunk of work to pass to a single Tesseract process"""
+
     CHUNK_PREFIX = "tesseract_chunk-"
     CHUNK_SUFFIX = ".txt"
 
     def __init__(self, filepaths, chunk_id, chunk_dir):
         self.filepaths = tuple(sorted(filepaths))
         self.chunk_id = chunk_id
-        self.path = os.path.join(chunk_dir, f"{Chunk.CHUNK_PREFIX}{self.chunk_id}{Chunk.CHUNK_SUFFIX}")
+        self.path = os.path.join(
+            chunk_dir, f"{Chunk.CHUNK_PREFIX}{self.chunk_id}{Chunk.CHUNK_SUFFIX}"
+        )
         self.__save()
         self.tsv_filename_no_suffix = f"{Chunk.CHUNK_PREFIX}{self.chunk_id}"
 
@@ -122,11 +125,14 @@ def _create_chunks(image_files, chunk_dir):
 
 def _tesseract_processes(chunks, tsv_dir):
     """Maps each chunk of work to a tesseract process"""
+
     def start_process(chunk: Chunk, env):
         """Starts a tesseract process for a chunk of image files"""
         tsv_path = os.path.join(tsv_dir, chunk.tsv_filename_no_suffix)
 
-        cmd = TESSERACT_COMMAND_TEMPLATE.format(chunk_path=chunk.path, tsv_path=tsv_path)
+        cmd = TESSERACT_COMMAND_TEMPLATE.format(
+            chunk_path=chunk.path, tsv_path=tsv_path
+        )
 
         print(cmd)
 
@@ -158,14 +164,13 @@ def _wait_for_completion(chunk_processes):
 
 def _create_final_output(chunks, tsv_dir, output_dir):
     """Link tsv output to original filenames and write out to a CSV per input PDF"""
-    
+
     def extract_original_file_names(df):
         """Removes suffix from image file names to recover the original PDF name"""
         basefiles = (
-            df.filename
-                .str.split(os.sep)  # Split by separator
-                .str[-1]  # Take last
-                .str.replace(f"_[0-9]+{config.IMAGE_SUFFIX}", "")  # Remove image suffix
+            df.filename.str.split(os.sep)  # Split by separator
+            .str[-1]  # Take last
+            .str.replace(f"_[0-9]+{config.IMAGE_SUFFIX}", "")  # Remove image suffix
         )
         return basefiles
 
@@ -173,14 +178,16 @@ def _create_final_output(chunks, tsv_dir, output_dir):
         """Extracts the page number from the image file suffix"""
         page_nums = (
             df.filename.str.split("/")
-                .str[-1]
-                .str.replace(config.IMAGE_SUFFIX, "")
-                .str.split("_")
-                .str[-1]
+            .str[-1]
+            .str.replace(config.IMAGE_SUFFIX, "")
+            .str.split("_")
+            .str[-1]
         )
         return page_nums
 
-    filenamed_tsv_dfs = [_link_tsv_to_filename(chunk, tsv_dir=tsv_dir) for chunk in chunks]
+    filenamed_tsv_dfs = [
+        _link_tsv_to_filename(chunk, tsv_dir=tsv_dir) for chunk in chunks
+    ]
 
     all_tsv_df = pd.concat(filenamed_tsv_dfs)
 
@@ -190,7 +197,9 @@ def _create_final_output(chunks, tsv_dir, output_dir):
     for key, group_df in all_tsv_df.groupby("basefile"):
 
         outfilepath = os.path.join(output_dir, f"{key}_output.csv")
-        output_df = group_df.sort_values("page_num").drop(columns=["filename", "basefile"])
+        output_df = group_df.sort_values("page_num").drop(
+            columns=["filename", "basefile"]
+        )
 
         output_df.to_csv(outfilepath, index=False)
 

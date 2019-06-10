@@ -41,6 +41,7 @@ class WorkingDir(object):
 
     NOTE: Clears out directory on initialisation
     """
+
     def __init__(self, batch_id):
         self.batch_id = batch_id
 
@@ -118,7 +119,7 @@ def process(batch: ch_ocr_runner.work.WorkBatch):
         image_dir=working_dir.image_processed_dir,
         chunk_dir=working_dir.chunk_dir,
         tsv_dir=working_dir.tsv_dir,
-        output_dir=working_dir.output_dir
+        output_dir=working_dir.output_dir,
     )
 
     create_lockfile(batch)
@@ -162,7 +163,7 @@ def save_processed_images(pdf_images, image_processed_dir):
     for pdf_idx, (pdf, images) in enumerate(pdf_images):
 
         if pdf_idx % config.PREPROCESS_REPORT_FREQUENCY == 0:
-                logger.info(f"Preprocessed {pdf_idx} PDFs")
+            logger.info(f"Preprocessed {pdf_idx} PDFs")
 
         for i, image in enumerate(images):
 
