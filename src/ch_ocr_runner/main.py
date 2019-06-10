@@ -111,6 +111,9 @@ def process(batch: ch_ocr_runner.work.WorkBatch):
 
     working_dir = WorkingDir(batch_id=batch.batch_id)
 
+    # Save missing data from the batch
+    batch.missing_df.to_csv(os.path.join(working_dir.batch_dir, "missing_data.csv"), index=False)
+
     pdf_to_image_generator = pdfs_to_images(batch, working_dir.image_raw_dir)
 
     preprocess(pdf_to_image_generator, working_dir)

@@ -40,9 +40,18 @@ class WorkBatch(object):
         self.data = data.copy()
 
         filepaths = data[Cols.path].values
+
+        missing_files = set()
         for filepath in filepaths:
             full_path = os.path.join(config.PDF_DIR, filepath)
-            assert os.path.isfile(full_path)
+            if not os.path.isfile(full_path):
+                missing_files.add(filepath)
+
+        self.missing_df = data[data[Cols.path].isin(missing_files)]
+        if len(self.missing_df) > 0:
+            logger.warning(f"Missing {len(self.missing_df)} pdfs from batch")
+
+        self.data = data[~data[Cols.path].isin(missing_files)]
 
     def filepaths(self):
         """Generator of full filepaths for work in this batch"""
