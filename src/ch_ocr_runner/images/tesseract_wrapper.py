@@ -37,6 +37,9 @@ class Chunk(object):
         self.__save()
         self.tsv_filename_no_suffix = f"{Chunk.CHUNK_PREFIX}{self.chunk_id}"
 
+    def tsv_filepath_no_suffix(self, tsv_dir):
+        return os.path.join(tsv_dir, self.tsv_filename_no_suffix)
+
     def __save(self):
 
         with open(self.path, "w") as f:
@@ -79,9 +82,7 @@ def run_ocr(image_dir, chunk_dir, tsv_dir, output_dir):
 
     chunks = _create_chunks(image_files, chunk_dir=chunk_dir)
 
-    chunk_processes = _tesseract_processes(chunks, tsv_dir=tsv_dir)
-
-    _wait_for_completion(chunk_processes)
+    _run_tesseract(chunks, tsv_dir=tsv_dir)
 
     _create_final_output(chunks, tsv_dir=tsv_dir, output_dir=output_dir)
 
@@ -123,43 +124,47 @@ def _create_chunks(image_files, chunk_dir):
     return chunks
 
 
-def _tesseract_processes(chunks, tsv_dir):
-    """Maps each chunk of work to a tesseract process"""
+def _run_tesseract(chunks, tsv_dir):
+    """Run Tesseract for each chunk"""
+    tesseract_params = [
+        (chunk.path, chunk.tsv_filepath_no_suffix(tsv_dir)) for chunk in chunks
+    ]
 
-    def start_process(chunk: Chunk, env):
-        """Starts a tesseract process for a chunk of image files"""
-        tsv_path = os.path.join(tsv_dir, chunk.tsv_filename_no_suffix)
+    logger.info("Starting Tesseract process pool")
+    logger.info(f"Tesseract command: {TESSERACT_COMMAND_TEMPLATE}")
 
-        cmd = TESSERACT_COMMAND_TEMPLATE.format(
-            chunk_path=chunk.path, tsv_path=tsv_path
+    for chunk_path, tsv_path in tesseract_params:
+        logger.info(f"chunk_path={chunk_path}, tsv_path={tsv_path}")
+
+    pool = multiprocessing.Pool(processes=NUM_PROCESSES)
+
+    output = pool.starmap(_run_tesseract_on_file, tesseract_params)
+
+    pool.close()
+    pool.join()
+
+    for (stdout, stderr), (chunk_path, tsv_path) in zip(output, tesseract_params):
+        logger.debug(
+            f"Logging output from chunk_path={chunk_path}, tsv_path={tsv_path} Tesseract call"
         )
-
-        print(cmd)
-
-        process = subprocess.Popen(
-            shlex.split(cmd), env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-        )
-
-        return process
-
-    logger.info("Starting Tesseract processes")
-
-    env = os.environ.copy()
-    tesseract_process_dict = {chunk: start_process(chunk, env) for chunk in chunks}
-
-    return tesseract_process_dict
-
-
-def _wait_for_completion(chunk_processes):
-
-    for chunk, process in chunk_processes.items():
-        logger.info(f"Waiting for Tesseract to process {chunk}")
-
-        # Communicate will wait for the process to finish
-        stdout, stderr = process.communicate()
-
         logger.debug(stdout.decode("utf-8"))
         logger.debug(stderr.decode("utf-8"))
+
+
+def _run_tesseract_on_file(chunk_path, tsv_path):
+    """Start a tesseract process to run OCR on a chunk of image files"""
+    cmd = TESSERACT_COMMAND_TEMPLATE.format(chunk_path=chunk_path, tsv_path=tsv_path)
+
+    env = os.environ.copy()
+
+    process = subprocess.Popen(
+        shlex.split(cmd), env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+    )
+
+    # Communicate will wait for the process to finish
+    stdout, stderr = process.communicate()
+
+    return stdout, stderr
 
 
 def _create_final_output(chunks, tsv_dir, output_dir):
