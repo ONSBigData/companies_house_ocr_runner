@@ -85,9 +85,16 @@ def fetch(allocation_filepath) -> Generator[WorkBatch, None, None]:
     """
     df = pd.read_csv(allocation_filepath, usecols=Cols.ALL)
 
-    allocated_only_df = _allocated_to_this_machine(df)
+    work_batches = _allocation_df_to_batches(df)
 
-    work_batches = _fetch(allocated_only_df)
+    return work_batches
+
+
+def _allocation_df_to_batches(allocation_df):
+
+    allocated_only_df = _allocated_to_this_machine(allocation_df)
+
+    work_batches = _create_batches(allocated_only_df)
 
     return work_batches
 
@@ -119,7 +126,7 @@ def _allocated_to_this_machine(df: pd.DataFrame):
     return filtered_df
 
 
-def _fetch(allocated_df: pd.DataFrame) -> Generator[WorkBatch, None, None]:
+def _create_batches(allocated_df: pd.DataFrame) -> Generator[WorkBatch, None, None]:
     """Turns a filtered allocation DataFrame into batches work."""
 
     groups = allocated_df.groupby(Cols.batch_id, sort=True)
