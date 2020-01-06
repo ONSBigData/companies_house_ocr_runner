@@ -1,0 +1,14 @@
+# Configuration for companies_house_ocr_runner
+# Default location ~/config/ch_ocr_runner_config.yml
+
+DATA_DIR: /var/resources
+
+# Directory which holds all the PDF files
+PDF_DIR: /var/resources/pdfs
+
+# Directory for the ocr runner to store intermediate files (image files etc.)
+WORKING_DIR: /var/resources/result
+
+# The batch allocation file is used
+# to look up which PDFs are allocated to this machine
+WORK_BATCH_ALLOCATION_FILEPATH: /var/resources/pdf_batch_allocation.csv

@@ -2,6 +2,8 @@
 
 notebooks/
 
+resources/
+
 /.vagrant
 /config/local/*
 /vagrant_config
@@ -97,6 +99,7 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+ch_ocr_runner_config.yml
 
 # Spyder project settings
 .spyderproject

@@ -1,0 +1,12 @@
+version: '3'
+
+services:
+  ocr:
+    build: .
+    image: app
+    volumes:
+      - ./resources:/var/resources
+    ports:
+      - "8888:8888"
+    environment:
+      CH_OCR_MACHINE_ID: TEST-MACHINE-01

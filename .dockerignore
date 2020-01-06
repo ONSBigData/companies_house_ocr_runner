@@ -1,0 +1,3 @@
+resources/
+Vagrantfile
+ch_ocr_runner_config.example.yml
