@@ -15,7 +15,7 @@ NOTE: This project was created as a prototype
 
 ### Running locally
 
-To run locally:
+To run locally with Vagrant/VirtualBox:
 
 * Install Vagrant/VirtualBox
 * Then:
@@ -24,6 +24,17 @@ To run locally:
   vagrant up
   vagrant ssh
   vagrant@ubuntu-bionic:~$ ch_ocr_runner
+```
+
+To run locally or on any web server with Docker:
+
+* Install Docker and Docker Compose
+* Create a resources directory in the project root (Gets mounted at `/var/resources` in the container)
+* Copy `ch_ocr_runner_config.docker-example.yml` to `ch_ocr_runner_config.yml`
+* Then:
+
+```shell script
+  docker-compose up
 ```
 
 ### Environment variables

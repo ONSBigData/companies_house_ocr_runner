@@ -1,0 +1,6 @@
+deployment/
+resources/
+
+ch_ocr_runner_config.example.yml
+Makefile
+Vagrantfile
